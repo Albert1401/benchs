@@ -5,15 +5,15 @@ import tasks.Task;
 import java.util.ArrayList;
 import java.util.List;
 
+import static solvers.AdaptiveGenSize.ProbType.LAMBDA;
+
 public class OneLambda extends AbstractEASolver implements EASolverManual {
     private final int lambda;
-
-    AdaptiveGenSize.ProbType ptype;
-
-    public OneLambda(AdaptiveGenSize.ProbType ptype, int lambda, int fcallslimit) {
+    private final double p;
+    public OneLambda(int lambda, double p, int fcallslimit) {
         super(fcallslimit);
-        this.ptype = ptype;
         this.lambda = lambda;
+        this.p = p;
     }
 
     @Override
@@ -24,30 +24,16 @@ public class OneLambda extends AbstractEASolver implements EASolverManual {
 
     @Override
     public String getName() {
-        return "1+" + lambda + ":>0,p=" + ptype;
+        return String.format("1+%d:>0p=.2%f", lambda, p);
     }
 
     @Override
     public EASolver copy() {
-        return new OneLambda(ptype, lambda, fcallslimit);
+        return new OneLambda(lambda, p, fcallslimit);
     }
 
     @Override
     public Info solve(Task task, boolean[] x, int fcallslimit) {
-        int dim = task.dimension();
-        double p;
-        switch (ptype) {
-            case LAMBDA:
-                p = Math.log(lambda) / 2 / dim;
-                break;
-            case STATIC:
-                p = 1.0 / dim;
-                break;
-            default:
-                throw new RuntimeException("Unreachable");
-        }
-        p = Math.max(1.0 / dim / dim, p);
-
         double f = task.fitness(x);
 
         List<Info.EpochInfo> infos = new ArrayList<>();
@@ -68,9 +54,6 @@ public class OneLambda extends AbstractEASolver implements EASolverManual {
             }
             fcalls += lambda;
             infos.add(new Info.EpochInfo(f, lambda, succ));
-        }
-        if (f < task.fitnessIWant()){
-            System.err.println("Can't reach fcalls");
         }
         return new Info(ep - 1, infos, x);
     }

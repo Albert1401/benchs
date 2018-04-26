@@ -4,16 +4,17 @@ import tasks.Task;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
-public class AdaptiveMut extends AbstractEASolver implements EASolverManual, EASolverExplorer {
+public class AdaptiveMut1 extends AbstractEASolver implements EASolverManual {
 
     final double initr;
-    final int initlambda;
+    final int lambda;
 
-    public AdaptiveMut(double initr, int initlambda, int fcallslimit) {
+    public AdaptiveMut1(double initr, int lambda, int fcallslimit) {
         super(fcallslimit);
         this.initr = initr;
-        this.initlambda = initlambda;
+        this.lambda = lambda;
     }
 
     @Override
@@ -28,21 +29,13 @@ public class AdaptiveMut extends AbstractEASolver implements EASolverManual, EAS
 
     @Override
     public EASolver copy() {
-        return new AdaptiveMut(initr, initlambda, fcallslimit);
+        return new AdaptiveMut1(initr, lambda, fcallslimit);
     }
 
     @Override
     public Info solve(Task task, boolean[] x, int fcallslimit) {
-        return solve(task, x, initr / task.dimension(), initlambda, fcallslimit);
-    }
-
-    @Override
-    public Info solve(Task task, boolean[] x, double p, int lambda, int fcallslimit) {
+        double localr = initr;
         int dim = task.dimension();
-
-        double r = p * task.dimension();
-        r = Math.max(2, r);
-        r = Math.min(dim / 4.0, r);
 
         double f = task.fitness(x);
 
@@ -50,9 +43,10 @@ public class AdaptiveMut extends AbstractEASolver implements EASolverManual, EAS
 
         int ep;
         int fcalls = 0;
+        Random random = new Random();
         for (ep = 1; fcalls + lambda <= fcallslimit && f < task.fitnessIWant(); ep++) {
-            boolean[][] gen1 = generate(x, r / 2 / dim, lambda / 2);
-            boolean[][] gen2 = generate(x, r * 2 / dim, lambda - lambda / 2);
+            boolean[][] gen1 = generate(x, localr / 2 / dim, lambda / 2);
+            boolean[][] gen2 = generate(x, localr * 2 / dim, lambda - lambda / 2);
 
             int fi = -1;
             double localf = -2_000_000_000;
@@ -78,14 +72,18 @@ public class AdaptiveMut extends AbstractEASolver implements EASolverManual, EAS
                 succ = true;
                 f = localf;
                 x = onFirst ? gen1[fi] : gen2[fi];
-                r *= onFirst ? 0.5 : 2;
             }
 
-            r = Math.max(2, r);
-            r = Math.min(dim / 4.0, r);
+            if (random.nextBoolean()) {
+                localr *= random.nextBoolean() ? 0.5 : 2;
+            } else {
+                localr *= onFirst ? 0.5 : 2;
+            }
+            localr = Math.max(2, localr);
+            localr = Math.min(dim / 4.0, localr);
             fcalls += lambda;
             infos.add(new Info.EpochInfo(f, lambda, succ));
         }
-        return new Info(ep - 1, infos, x, lambda, r / task.dimension());
+        return new Info(ep - 1, infos, x);
     }
 }

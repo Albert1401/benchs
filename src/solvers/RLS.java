@@ -50,10 +50,6 @@ public class RLS extends AbstractEASolver implements EASolverManual {
             }
             infos.add(new Info.EpochInfo(f, 1, succ));
         }
-
-        if (f < task.fitnessIWant()){
-            System.err.println("Can't reach fcalls");
-        }
         return new Info(ep - 1, infos, x);
     }
 }

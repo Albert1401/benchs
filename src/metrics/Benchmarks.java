@@ -2,9 +2,7 @@ package metrics;
 
 import solvers.Info;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class Benchmarks {
     public static List<Benchmark.A> callsToReachValue(List<Info> infos, double r, boolean calcUnsucc) {
@@ -16,15 +14,24 @@ public class Benchmarks {
     public static List<Benchmark.A> callsToReachValue(List<Info> infos, double start, double end, int n, boolean calcUnsucc) {
         double step = (end - start) / n;
         int[][] f2calls = new int[n][infos.size()];
+
+        List<Map<Integer, Double>> f2solvers = new ArrayList<>();
+        for (int j = 0; j < n; j++) {
+            f2solvers.add(new HashMap<>());
+        }
         for (int i = 0; i < infos.size(); i++) {
             Info info = infos.get(i);
             int fcalls = 1;
             int fprogress = 0;
 
-
             for (int j = 0; fprogress < n && j < info.epochInfos.size(); ) {
                 double currentf = fprogress == n - 1 ? end : start + step * (fprogress + 1);
                 Info.EpochInfo epoch = info.epochInfos.get(j);
+
+                Map<Integer, Double> sols = f2solvers.get(fprogress);
+
+                sols.putIfAbsent(epoch.solver, 0.0);
+                sols.compute(epoch.solver, (k, v) -> v + 1.0 / infos.size());
 
                 if (epoch.fvalue < currentf) {
                     if (epoch.success || calcUnsucc) {
@@ -38,6 +45,15 @@ public class Benchmarks {
             }
 
         }
+        //fix solvs map
+        int mins = f2solvers.stream().flatMap(ss -> ss.keySet().stream()).mapToInt(i -> i).min().orElse(0);
+        int maxs = f2solvers.stream().flatMap(ss -> ss.keySet().stream()).mapToInt(i -> i).max().orElse(0);
+        f2solvers.forEach(ss -> {
+            for (int i = mins; i <= maxs; i++) {
+                ss.putIfAbsent(i, 0.0);
+            }
+        });
+
         List<Benchmark.A> res = new ArrayList<>(n);
         for (int fprogress = 0; fprogress < n; fprogress++) {
             double currentf = fprogress == n - 1 ? end : start + step * (fprogress + 1);
@@ -51,10 +67,8 @@ public class Benchmarks {
                     .filter(d -> d != 0)
                     .average().orElse(0);
 
-            res.add(new Benchmark.A(currentf, avgCalls));
+            res.add(new Benchmark.A(currentf, avgCalls, f2solvers.get(fprogress)));
         }
         return res;
     }
-
-
 }

@@ -5,38 +5,30 @@ import tasks.Task;
 import java.util.ArrayList;
 import java.util.List;
 
-public class AdaptiveGenSize extends AbstractEASolver implements EASolverManual {
+public class AdaptiveGenSize extends AbstractEASolver implements EASolverExplorer {
     final int lambda0;
-    final ProbType ptype;
     final SizeChangeType ltype;
 
     @Override
+    public Info solve(Task task) {
+        return solve(task, init(task.dimension()), fcallslimit);
+    }
+
+
+    @Override
     public Info solve(Task task, boolean[] x, int fcallslimit) {
-        int dim = task.dimension();
+        return solve(task, x, 1.0 / task.dimension(), lambda0, fcallslimit);
+    }
+
+    @Override
+    public Info solve(Task task, boolean[] x, double p, int lambda, int fcallslimit) {
         double f = task.fitness(x);
-
         List<Info.EpochInfo> infos = new ArrayList<>();
-
         int ep;
 
-        int lambda = lambda0;
         int fcalls = 0;
-
         for (ep = 1; fcalls + lambda <= fcallslimit && f < task.fitnessIWant(); ep++) {
-            double p;
-            switch (ptype) {
-                case LAMBDA:
-                    p = Math.log(lambda) / 2 / dim;
-                    break;
-                case STATIC:
-                    p = 1.0 / dim;
-                    break;
-                default:
-                    throw new RuntimeException("Unreachable");
-            }
-            p = Math.max(1.0 / dim / dim, p);
             boolean[][] gen = generate(x, p, lambda);
-
 
             double localf = f;
             int s = 0;
@@ -72,15 +64,12 @@ public class AdaptiveGenSize extends AbstractEASolver implements EASolverManual 
                 lambda *= 2;
             }
         }
-        if (f < task.fitnessIWant()){
-            System.err.println("Can't reach fcalls");
-        }
-        return new Info(ep - 1, infos, x);
+        return new Info(ep - 1, infos, x, lambda, p);
     }
 
     public enum ProbType {
         STATIC("n^-1"),
-        LAMBDA("0.5*ln(lambda)*n^-1"),;
+        LAMBDA("0.5*ln(initlambda)*n^-1"),;
 
         private final String repr;
 
@@ -112,26 +101,20 @@ public class AdaptiveGenSize extends AbstractEASolver implements EASolverManual 
     }
 
 
-    public AdaptiveGenSize(int lambda0, ProbType ptype, SizeChangeType ltype, int fcallslimit) {
+    public AdaptiveGenSize(int lambda0, SizeChangeType ltype, int fcallslimit) {
         super(fcallslimit);
         this.lambda0 = lambda0;
-        this.ptype = ptype;
         this.ltype = ltype;
     }
 
 
     @Override
-    public Info solve(Task task) {
-        return solve(task, init(task.dimension()), fcallslimit);
-    }
-
-    @Override
     public String getName() {
-        return "1+" + ltype + ":>0,p=" + ptype;
+        return "1+" + ltype + ":>0";
     }
 
     @Override
     public EASolver copy() {
-        return new AdaptiveGenSize(lambda0, ptype, ltype, fcallslimit);
+        return new AdaptiveGenSize(lambda0, ltype, fcallslimit);
     }
 }

@@ -17,29 +17,45 @@ public class Info {
     public final int epochs;
     public final List<EpochInfo> epochInfos;
     public final boolean[] x;
-    private String name;
+    protected String name;
+    public final int lambda;
+    public final double prob;
+
+    public Info(int epochs, List<EpochInfo> epochInfos, boolean[] x, int lambda, double prob) {
+        this.epochs = epochs;
+        this.epochInfos = epochInfos;
+        this.x = x;
+        this.lambda = lambda;
+        this.prob = prob;
+    }
+
+    public Info(int epochs, List<EpochInfo> epochInfos, boolean[] x) {
+        this(epochs, epochInfos, x, -1, -1);
+    }
 
 
     public String getName() {
         return name;
     }
 
-    public Info(int epochs, List<EpochInfo> epochInfos, boolean[] x) {
-        this.epochs = epochs;
-        this.epochInfos = epochInfos;
-        this.x = x;
-    }
 
     public static class EpochInfo {
         public final double fvalue;
         public final int fcalls;
         public final boolean success;
+        public int solver;
 
-        public EpochInfo(double fvalue, int fcalls, boolean success) {
+        public EpochInfo(double fvalue, int fcalls, boolean success, int solver) {
             this.fvalue = fvalue;
             this.fcalls = fcalls;
             this.success = success;
+            this.solver = solver;
         }
+
+        public EpochInfo(double fvalue, int fcalls, boolean success) {
+            this(fvalue, fcalls, success, -1);
+        }
+
 
         @Override
         public boolean equals(Object o) {
@@ -72,6 +88,8 @@ public class Info {
                 writer.newLine();
                 writer.write(epochInfo.fvalue + "");
                 writer.newLine();
+                writer.write(epochInfo.solver + "");
+                writer.newLine();
                 writer.write((epochInfo.success ? 1 : 0) + "");
                 writer.newLine();
             }
@@ -92,8 +110,9 @@ public class Info {
             for (int i = 0; i < epochs; i++) {
                 int fcalls = Integer.parseInt(reader.readLine());
                 double fvalue = Double.parseDouble(reader.readLine());
+                int si = Integer.parseInt(reader.readLine());
                 int success = Integer.parseInt(reader.readLine());
-                eps.add(new EpochInfo(fvalue, fcalls, success == 1));
+                eps.add(new EpochInfo(fvalue, fcalls, success == 1, si));
             }
             Info info = new Info(epochs, eps, null);
             info.name = name;
