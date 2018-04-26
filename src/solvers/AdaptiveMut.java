@@ -39,7 +39,7 @@ public class AdaptiveMut extends AbstractEASolver implements EASolverManual, EAS
     @Override
     public Info solve(Task task, boolean[] x, double p, int lambda, int fcallslimit) {
         int dim = task.dimension();
-
+        lambda = 50;
         double r = p * task.dimension();
         r = Math.max(2, r);
         r = Math.min(dim / 4.0, r);
@@ -55,36 +55,33 @@ public class AdaptiveMut extends AbstractEASolver implements EASolverManual, EAS
             boolean[][] gen2 = generate(x, r * 2 / dim, lambda - lambda / 2);
 
             int fi = -1;
-            double localf = -2_000_000_000;
 
             for (int j = 0; j < gen1.length; j++) {
                 double fnew = task.fitness(gen1[j]);
-                if (fnew >= localf) {
-                    localf = fnew;
+                if (fnew >= f) {
+                    f = fnew;
                     fi = j;
                 }
             }
             boolean onFirst = true;
             for (int j = 0; j < gen2.length; j++) {
                 double fnew = task.fitness(gen2[j]);
-                if (fnew >= localf) {
-                    localf = fnew;
+                if (fnew >= f) {
+                    f = fnew;
                     fi = j;
                     onFirst = false;
                 }
             }
-            boolean succ = false;
-            if (localf >= f){
-                succ = true;
-                f = localf;
+            if (fi != -1){
                 x = onFirst ? gen1[fi] : gen2[fi];
                 r *= onFirst ? 0.5 : 2;
+
+                r = Math.max(2, r);
+                r = Math.min(dim / 4.0, r);
             }
 
-            r = Math.max(2, r);
-            r = Math.min(dim / 4.0, r);
             fcalls += lambda;
-            infos.add(new Info.EpochInfo(f, lambda, succ));
+            infos.add(new Info.EpochInfo(f, lambda, fi != 1));
         }
         return new Info(ep - 1, infos, x, lambda, r / task.dimension());
     }

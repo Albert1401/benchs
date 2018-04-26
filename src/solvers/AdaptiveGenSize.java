@@ -67,22 +67,6 @@ public class AdaptiveGenSize extends AbstractEASolver implements EASolverExplore
         return new Info(ep - 1, infos, x, lambda, p);
     }
 
-    public enum ProbType {
-        STATIC("n^-1"),
-        LAMBDA("0.5*ln(initlambda)*n^-1"),;
-
-        private final String repr;
-
-        ProbType(String s) {
-            repr = s;
-        }
-
-        @Override
-        public String toString() {
-            return repr;
-        }
-    }
-
     public enum SizeChangeType {
         SUCCESSRATE("{2l;s^-1*l}"),
         STATICONE("{2l;1}"),
