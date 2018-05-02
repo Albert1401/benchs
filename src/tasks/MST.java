@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class MST implements Task {
+public class MST implements  Task{
     final double optimVal;
     private final int n;
     private final int v;
@@ -90,6 +90,11 @@ public class MST implements Task {
 
 //        return w0 * v - ((c - 1) * w0 + w);
         return (w0 * v - ((c - 1) * w0 + w)) / (w0 * v) * 20;
+    }
+
+    @Override
+    public double fitness(boolean[] x, int[] inds, double f) {
+        throw new RuntimeException("not implemented");
     }
 
     @Override

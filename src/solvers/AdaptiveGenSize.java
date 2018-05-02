@@ -6,8 +6,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class AdaptiveGenSize extends AbstractEASolver implements EASolverExplorer {
-    final int lambda0;
     final SizeChangeType ltype;
+    final int initLambda;
+    final int maxLambda;
+    final int minLambda;
 
     @Override
     public Info solve(Task task) {
@@ -17,8 +19,10 @@ public class AdaptiveGenSize extends AbstractEASolver implements EASolverExplore
 
     @Override
     public Info solve(Task task, boolean[] x, int fcallslimit) {
-        return solve(task, x, 1.0 / task.dimension(), lambda0, fcallslimit);
+        return solve(task, x, 1.0 / task.dimension(), initLambda, fcallslimit);
     }
+
+
 
     @Override
     public Info solve(Task task, boolean[] x, double p, int lambda, int fcallslimit) {
@@ -27,17 +31,24 @@ public class AdaptiveGenSize extends AbstractEASolver implements EASolverExplore
         int ep;
 
         int fcalls = 0;
+        List<int[]> gen = initInds(task.dimension(), maxLambda);
+
         for (ep = 1; fcalls + lambda <= fcallslimit && f < task.fitnessIWant(); ep++) {
-            boolean[][] gen = generate(x, p, lambda);
+            List<int[]> curGen = gen.subList(0, lambda);
+            generate(x, p, curGen);
 
             double localf = f;
             int s = 0;
-            for (boolean[] xnew : gen) {
-                double fnew = task.fitness(xnew);
+            int[] inds = null;
+
+            for (int[] mutInds : curGen) {
+                double fnew = task.fitness(x, mutInds, localf);
+
                 if (fnew >= f) {
                     f = fnew;
-                    x = xnew;
+                    inds = mutInds;
                 }
+
                 if (fnew >= localf) {
                     s += 1;
                 }
@@ -59,9 +70,15 @@ public class AdaptiveGenSize extends AbstractEASolver implements EASolverExplore
                     default:
                         throw new RuntimeException("Unreachable");
                 }
-                lambda = Math.max(1, lambda);
             } else {
                 lambda *= 2;
+            }
+
+            lambda = Math.min(maxLambda, lambda);
+            lambda = Math.max(minLambda, lambda);
+
+            if (inds != null) {
+                mutate(x, inds);
             }
         }
         return new Info(ep - 1, infos, x, lambda, p);
@@ -85,12 +102,13 @@ public class AdaptiveGenSize extends AbstractEASolver implements EASolverExplore
     }
 
 
-    public AdaptiveGenSize(int lambda0, SizeChangeType ltype, int fcallslimit) {
+    public AdaptiveGenSize(SizeChangeType ltype, int initLambda, int minLambda, int maxLambda, int fcallslimit) {
         super(fcallslimit);
-        this.lambda0 = lambda0;
         this.ltype = ltype;
+        this.initLambda = initLambda;
+        this.maxLambda = maxLambda;
+        this.minLambda = minLambda;
     }
-
 
     @Override
     public String getName() {
@@ -99,6 +117,6 @@ public class AdaptiveGenSize extends AbstractEASolver implements EASolverExplore
 
     @Override
     public EASolver copy() {
-        return new AdaptiveGenSize(lambda0, ltype, fcallslimit);
+        return new AdaptiveGenSize(ltype, initLambda, minLambda, maxLambda, fcallslimit);
     }
 }

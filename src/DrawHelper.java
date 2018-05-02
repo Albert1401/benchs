@@ -19,7 +19,7 @@ public class DrawHelper {
 //        String tests = args[0];
 //        String dir1 = args[1];
 //        String dir2 = args[2];
-        String tests = "222/";
+        String tests = "111/";
         String dir1 = "AA/";
 //        String dir2 = args[2];
         try (Stream<Path> files = Files.walk(Paths.get(tests))) {

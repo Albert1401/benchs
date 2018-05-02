@@ -6,15 +6,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-public class AdaptiveMut extends AbstractEASolver implements EASolverManual, EASolverExplorer {
+public class AdaptiveMutOrigin extends AbstractEASolver implements EASolverManual {
 
     final double initr;
-    final int initlambda;
+    final int lambda;
 
-    public AdaptiveMut(double initr, int initlambda, int fcallslimit) {
+    public AdaptiveMutOrigin(double initr, int lambda, int fcallslimit) {
         super(fcallslimit);
         this.initr = initr;
-        this.initlambda = initlambda;
+        this.lambda = lambda;
     }
 
     @Override
@@ -29,19 +29,19 @@ public class AdaptiveMut extends AbstractEASolver implements EASolverManual, EAS
 
     @Override
     public EASolver copy() {
-        return new AdaptiveMut(initr, initlambda, fcallslimit);
-    }
-
-    @Override
-    public Info solve(Task task, boolean[] x, int fcallslimit) {
-        return solve(task, x, initr / task.dimension(), initlambda, fcallslimit);
+        return new AdaptiveMutOrigin(initr, lambda, fcallslimit);
     }
 
     @Override
     public Info solve(Task task, boolean[] x, double p, int lambda, int fcallslimit) {
         int dim = task.dimension();
+        int pl = lambda;
 
+        lambda = Math.max(initlambda, lambda);
         double r = p * task.dimension();
+        r = Math.max(2, r);
+        r = Math.min(dim / 4.0, r);
+
         double f = task.fitness(x);
 
         List<Info.EpochInfo> infos = new ArrayList<>();
@@ -61,7 +61,7 @@ public class AdaptiveMut extends AbstractEASolver implements EASolverManual, EAS
             int fi1 = -1;
             int fi2 = -1;
 
-            double fleft = -2_000_000_000;
+            double fleft = f - 1;
             for (int j = 0; j < gen1.size(); j++) {
                 double fnew = task.fitness(x, gen1.get(j), f);
                 if (fnew >= fleft) {
@@ -70,7 +70,7 @@ public class AdaptiveMut extends AbstractEASolver implements EASolverManual, EAS
                 }
             }
 
-            double fright = -2_000_000_000;
+            double fright = f - 1;
             for (int j = 0; j < gen2.size(); j++) {
                 double fnew = task.fitness(x, gen2.get(j), f);
                 if (fnew >= fright) {
@@ -79,34 +79,30 @@ public class AdaptiveMut extends AbstractEASolver implements EASolverManual, EAS
                 }
             }
 
-            boolean onFirst;
-
-            if (fleft == fright) {
-                onFirst = random.nextBoolean();
-            } else {
-                onFirst = fleft > fright;
-            }
             if (Math.max(fleft, fright) >= f) {
-                int fi = onFirst ? fi1 : fi2;
                 f = Math.max(fleft, fright);
+                int fi;
+                boolean onFirst;
+
+                if (fleft == fright) {
+                    onFirst = random.nextBoolean();
+                    fi = onFirst ? fi1 : fi2;
+                } else {
+                    onFirst = fleft > fright;
+                    fi = onFirst ? fi1 : fi2;
+                }
+
                 mutate(x, onFirst ? gen1.get(fi) : gen2.get(fi));
+                r *= onFirst ? 0.5 : 2;
+
+                r = Math.max(2, r);
+                r = Math.min(dim / 4.0, r);
 
                 infos.add(new Info.EpochInfo(f, lambda, true));
             } else {
                 infos.add(new Info.EpochInfo(f, lambda, false));
             }
-
-            if (random.nextBoolean()) {
-                r *= random.nextBoolean() ? 0.5 : 2;
-            } else {
-                r *= onFirst ? 0.5 : 2;
-            }
-
-            r = Math.max(2, r);
-            r = Math.min(dim / 4.0, r);
-
             fcalls += lambda;
         }
-        return new Info(ep - 1, infos, x, lambda, r / task.dimension());
-    }
-}
+        return new Info(ep - 1, infos, x, pl, r / task.dimension());
+    }}

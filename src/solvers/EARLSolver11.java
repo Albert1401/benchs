@@ -11,11 +11,11 @@ public class EARLSolver11 extends AbstractEASolver implements EASolver {
     final List<EASolverExplorer> explorers;
 //    final List<EASolverManual> exploiters;
     final double eps;
-    final int fstep;
+    final int learningEpochs;
     final double eta;
     final double discount;
+    final int exploitingLimit;
     final int states;
-
     final List<Map<Integer, Double>> QAS = new ArrayList<>();
 
     public int getState(boolean x[]) {
@@ -45,42 +45,46 @@ public class EARLSolver11 extends AbstractEASolver implements EASolver {
     }
 
 
-//    void updateQ(Info info, double fgain, int solver, int prevState, int nextState) {
-//        double maxQ = IntStream.range(0, solvers.size())
-//                .mapToDouble(i -> getQ(nextState, i))
-//                .max().orElse(0);
-//
+    void updateQ(Info info, double fgain, int solver, int prevState, int nextState) {
+        double maxQ = IntStream.range(0, explorers.size())
+                .mapToDouble(i -> getQ(nextState, i))
+                .max().orElse(0);
+
 //        maxQ = 0;
-//        double prevQ = getQ(prevState, solver);
-//        double nextQ = (1 - eta) * prevQ + eta * (reward(info, fgain) + discount * maxQ);
+        double prevQ = getQ(prevState, solver);
+        double nextQ = (1 - eta) * prevQ + eta * (reward(info, fgain) + discount * maxQ);
+
+        QAS.get(solver).put(prevState, nextQ);
+    }
 //
-//        QAS.get(solver).put(prevState, nextQ);
-//    }
-
-//    int getSolverGreedily(int state) {
-//        int maxi = 0;
-//        double max = Double.MIN_VALUE;
-//        for (int si = 0; si < solvers.size(); si++) {
-//            double x = getQ(state, si);
-//            if (x > max) {
-//                maxi = si;
-//                max = x;
-//            }
-//        }
-//        return maxi;
-//    }
-
+    int getExplorerGreedily(int state) {
+        int maxi = 0;
+        double max = Double.MIN_VALUE;
+        for (int si = 0; si < explorers.size(); si++) {
+            double x = getQ(state, si);
+            if (x > max) {
+                maxi = si;
+                max = x;
+            }
+        }
+        //TODO
+        if (getQ(state, Math.abs(1 - maxi)) == max){
+            return random.nextInt(2);
+        }
+        return maxi;
+    }
+//
     @Override
     public Info solve(Task task) {
-//        QAS.clear();
-//        for (int i = 0; i < solvers.size(); i++) {
-//            QAS.add(new HashMap<>());
-//        }
+        QAS.clear();
+        for (int i = 0; i < explorers.size(); i++) {
+            QAS.add(new HashMap<>());
+        }
 
         int dim = task.dimension();
         boolean[] x = init(dim);
         double f = task.fitness(x);
-//        int state = getState(f, task);
+        int state = getState(f, task);
 
         List<Info.EpochInfo> epochInfos = new ArrayList<>();
         Random random = new Random();
@@ -90,73 +94,71 @@ public class EARLSolver11 extends AbstractEASolver implements EASolver {
         double p = 1.0 / task.dimension();
         int lambda = 10;
 
-        for (ep = 1; fcalls + fstep <= fcallslimit && f < task.fitnessIWant(); ep++) {
-
-            //Strategy
+        for (ep = 1; fcalls <= fcallslimit && f < task.fitnessIWant(); ep++) {
+            //Learning strategy
             int si;
-//            boolean exp = false;
             Info info = null;
+//            lambda = Math.min(60, lambda);
+//            p = 1.0 / task.dimension();
             if (random.nextDouble() < eps) {
                 //Explore
                 si = random.nextInt(explorers.size());
-                info = explorers.get(si).solve(task, x, p, lambda, fstep);
-                p = info.prob;
-                lambda = info.lambda;
-//                exp = true;
             } else {
                 //Exploit
-//                si = getSolverGreedily(state);
-                info = new OneLambda(lambda, p, fcallslimit).solve(task, x, fcallslimit);
+                si = getExplorerGreedily(state);
             }
-
-            //Step
-//            EASolverManual solver = solvers.get(si);
-//            Info info = solver.solve(task, x, fstep);
-//            info.epochInfos.stream().peek(i -> i.solver = si).forEach(epochInfos::add);
+            info = explorers.get(si).solve(task, x, p, lambda, learningEpochs);
             info.epochInfos.stream().peek(i -> i.solver = -1).forEach(epochInfos::add);
+            fcalls += info.allCalls();
 
+            p = info.prob;
+            lambda = info.lambda;
 
-            //Changing state
             double fnew = task.fitness(info.x);
-            double fgain = fnew - f;
             if (fnew >= f) {
                 f = fnew;
                 x = info.x;
             }
-//            int prevState = state;
-//            state = getState(f, task);
 
+            // Use
+            EASolverManual solver = new OneLambda(lambda, p, Integer.MAX_VALUE);
+            info = solver.solve(task, x, exploitingLimit);
+            info.epochInfos.stream().peek(i -> i.solver = -1).forEach(epochInfos::add);
             fcalls += info.allCalls();
 
-            //Update Q
-//            if (exp) {
-//                updateQ(info, fgain, si, prevState, state);
-//            }
+            fnew = task.fitness(info.x);
+            updateQ(info, fnew - f, si, state, state);
+
+            if (fnew >= f) {
+                f = fnew;
+                x = info.x;
+            }
         }
         return new Info(epochInfos.size(), epochInfos, x);
     }
 
     @Override
     public String getName() {
-        return String.format("EARL eps=%.2f fstep=%d eta=%.2f " +
-                "disc=%.2f states=%d", eps, fstep, eta, discount, states);
+        return String.format("EARL eps=%.2f learn=%d eta=%.2f " +
+                "disc=%.2f limit=%d states=%d", eps, learningEpochs, eta, discount, exploitingLimit, states);
     }
 
     @Override
     public EASolver copy() {
         List<EASolverExplorer> ss = explorers.stream().map(s -> (EASolverExplorer) s.copy()).collect(Collectors.toList());
-        return new EARLSolver11(fcallslimit, ss, eps, fstep, eta, discount, states);
+        return new EARLSolver11(fcallslimit, ss, eps, learningEpochs, eta, discount, exploitingLimit ,states);
     }
 
     public EARLSolver11(int fcallslimit, List<EASolverExplorer> explorers, double eps,
-                        int fstep, double eta, double discount, int states) {
+                        int learningEpochs, double eta, double discount, int exploitingLimit, int states) {
         super(fcallslimit);
         this.explorers = explorers;
 //        this.exploiters =exploiters;
         this.eps = eps;
-        this.fstep = fstep;
+        this.learningEpochs = learningEpochs;
         this.eta = eta;
         this.discount = discount;
+        this.exploitingLimit = exploitingLimit;
         this.states = states;
     }
 }

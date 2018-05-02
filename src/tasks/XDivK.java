@@ -1,30 +1,29 @@
 package tasks;
 
-
 import java.util.List;
 
-public class OneMax implements Task {
-    public int n;
+public class XDivK implements Task{
+    private int n, k;
 
-    public OneMax(int n) {
+    public XDivK(int n, int k) {
         this.n = n;
+        this.k = k;
     }
 
     @Override
     public double fitness(boolean[] x) {
-        double res = 0;
+        int res = 0;
         for (boolean b : x) {
-            res += b ? 1 : 0;
+            if (b){
+                res+=1;
+            }
         }
-        return res;
+        return res / k;
     }
 
     @Override
     public double fitness(boolean[] x, int[] inds, double f) {
-        for (int i = 0; i < inds.length; i++) {
-            f += x[i] ? -1 : 1;
-        }
-        return f;
+        throw new RuntimeException("not implemented");
     }
 
     @Override
@@ -34,11 +33,11 @@ public class OneMax implements Task {
 
     @Override
     public double fitnessIWant() {
-        return n;
+        return n / k;
     }
 
     @Override
     public String getName() {
-        return "OneMax_" + n;
+        return "XDivK_" + n;
     }
 }

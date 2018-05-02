@@ -8,7 +8,7 @@ import java.util.stream.IntStream;
 
 
 public class EARLSolver extends AbstractEASolver implements EASolver {
-    final List<EASolverManual> solvers;
+    final List<EASolverExplorer> solvers;
     final double eps;
     final int fstep;
     final double eta;
@@ -87,6 +87,11 @@ public class EARLSolver extends AbstractEASolver implements EASolver {
         Random random = new Random();
         int ep;
         int fcalls = 0;
+
+        double p = 1.0 / task.dimension();
+        int lambda = 10;
+        int ii = 0;
+
         for (ep = 1; fcalls + fstep <= fcallslimit && f < task.fitnessIWant(); ep++) {
 
             //Strategy
@@ -102,8 +107,11 @@ public class EARLSolver extends AbstractEASolver implements EASolver {
             }
 
             //Step
-            EASolverManual solver = solvers.get(si);
-            Info info = solver.solve(task, x, fstep);
+            EASolverExplorer solver = solvers.get(si);
+            Info info = solver.solve(task, x, p, lambda, fstep);
+            p = info.prob;
+            lambda = Math.min(info.lambda, fstep);
+
             info.epochInfos.stream().peek(i -> i.solver = si).forEach(epochInfos::add);
 
 
@@ -122,6 +130,10 @@ public class EARLSolver extends AbstractEASolver implements EASolver {
 //            if (exp) {
                 updateQ(info, fgain, si, prevState, state);
 //            }
+            if (fcalls / 200000 > ii){
+                System.out.println(fcalls + "  " + f);
+                ii = fcalls / 200000;
+            }
         }
         return new Info(epochInfos.size(), epochInfos, x);
     }
@@ -134,11 +146,11 @@ public class EARLSolver extends AbstractEASolver implements EASolver {
 
     @Override
     public EASolver copy() {
-        List<EASolverManual> ss = solvers.stream().map(s -> (EASolverManual) s.copy()).collect(Collectors.toList());
+        List<EASolverExplorer> ss = solvers.stream().map(s -> (EASolverExplorer) s.copy()).collect(Collectors.toList());
         return new EARLSolver(fcallslimit, ss, eps, fstep, eta, discount, states);
     }
 
-    public EARLSolver(int fcallslimit, List<EASolverManual> solvers, double eps,
+    public EARLSolver(int fcallslimit, List<EASolverExplorer> solvers, double eps,
                       int fstep, double eta, double discount, int states) {
         super(fcallslimit);
         this.solvers = solvers;
