@@ -4,5 +4,5 @@ import javafx.util.Pair;
 import tasks.Task;
 
 public interface EASolverManual extends EASolver {
-    Info solve(Task task, boolean[] x, int fcallslimit);
+    <T, R> Info<T> solve(Task<T, R> task, T x, int fcallslimit);
 }

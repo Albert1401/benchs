@@ -10,59 +10,65 @@ public class AdaptiveGenSize extends AbstractEASolver implements EASolverExplore
     final int initLambda;
     final int maxLambda;
     final int minLambda;
+    final double A, B;
 
     @Override
-    public Info solve(Task task) {
-        return solve(task, init(task.dimension()), fcallslimit);
+    public <T, R> Info<T> solve(Task<T, R> task) {
+        return solve(task, task.init(), fcallslimit);
     }
 
 
     @Override
-    public Info solve(Task task, boolean[] x, int fcallslimit) {
+    public <T, R> Info<T> solve(Task<T, R> task, T x, int fcallslimit) {
         return solve(task, x, 1.0 / task.dimension(), initLambda, fcallslimit);
     }
 
 
 
     @Override
-    public Info solve(Task task, boolean[] x, double p, int lambda, int fcallslimit) {
+    public <T, R> Info<T> solve(Task<T, R> task, T x, double p, int lambda, int fcallslimit) {
         double f = task.fitness(x);
         List<Info.EpochInfo> infos = new ArrayList<>();
         int ep;
 
         int fcalls = 0;
-        List<int[]> gen = initInds(task.dimension(), maxLambda);
+        int lambdaStep = 0;
+        List<R> gen = task.initInds(maxLambda);
 
         for (ep = 1; fcalls + lambda <= fcallslimit && f < task.fitnessIWant(); ep++) {
-            List<int[]> curGen = gen.subList(0, lambda);
-            generate(x, p, curGen);
+            List<R> curGen = gen.subList(0, lambda);
+            task.generate(p, curGen);
 
-            double localf = f;
+            double fold = f;
             int s = 0;
-            int[] inds = null;
+            R inds = null;
 
-            for (int[] mutInds : curGen) {
-                double fnew = task.fitness(x, mutInds, localf);
+            for (R mutInds : curGen) {
+                double fnew = task.fitness(x, mutInds, fold);
 
                 if (fnew >= f) {
                     f = fnew;
                     inds = mutInds;
                 }
 
-                if (fnew >= localf) {
+                if (fnew >= fold) {
                     s += 1;
                 }
             }
-
-            infos.add(new Info.EpochInfo(f, lambda, s != 0));
             fcalls += lambda;
+            lambdaStep += lambda;
+            if (f > fold){
+                infos.add(new Info.EpochInfo(f, lambdaStep));
+                lambdaStep = 0;
+            }
+
             if (s != 0) {
                 switch (ltype) {
-                    case STATICONE:
+                    case ONE:
                         lambda = 1;
                         break;
-                    case STATICTWO:
-                        lambda = lambda / 2;
+                    case AB:
+                        lambda = (int) (lambda * B);
                         break;
                     case SUCCESSRATE:
                         lambda = lambda / s;
@@ -71,23 +77,35 @@ public class AdaptiveGenSize extends AbstractEASolver implements EASolverExplore
                         throw new RuntimeException("Unreachable");
                 }
             } else {
-                lambda *= 2;
+                if (ltype == SizeChangeType.AB){
+                    lambda = (int) (lambda * A);
+                } else {
+                    lambda *= 2;
+                }
             }
 
             lambda = Math.min(maxLambda, lambda);
             lambda = Math.max(minLambda, lambda);
 
             if (inds != null) {
-                mutate(x, inds);
+                task.mutate(x, inds);
             }
         }
-        return new Info(ep - 1, infos, x, lambda, p);
+        if (lambdaStep != 0){
+            infos.add(new Info.EpochInfo(f, lambdaStep));
+        }
+        return new Info<>(ep - 1, infos, x, lambda, p);
+    }
+
+    @Override
+    public State.Type pType() {
+        return State.Type.WITHOUTLAMBDA;
     }
 
     public enum SizeChangeType {
-        SUCCESSRATE("{2l;s^-1*l}"),
-        STATICONE("{2l;1}"),
-        STATICTWO("{2l;0.5*l}");
+        SUCCESSRATE("{2l;s^-1xl}"),
+        ONE("{2l;1}"),
+        AB("{A;B}");
 
         private final String repr;
 
@@ -102,12 +120,14 @@ public class AdaptiveGenSize extends AbstractEASolver implements EASolverExplore
     }
 
 
-    public AdaptiveGenSize(SizeChangeType ltype, int initLambda, int minLambda, int maxLambda, int fcallslimit) {
+    public AdaptiveGenSize(SizeChangeType ltype, int initLambda, int minLambda, int maxLambda, int fcallslimit, double A, double B) {
         super(fcallslimit);
         this.ltype = ltype;
         this.initLambda = initLambda;
         this.maxLambda = maxLambda;
         this.minLambda = minLambda;
+        this.A = A;
+        this.B = B;
     }
 
     @Override
@@ -117,6 +137,6 @@ public class AdaptiveGenSize extends AbstractEASolver implements EASolverExplore
 
     @Override
     public EASolver copy() {
-        return new AdaptiveGenSize(ltype, initLambda, minLambda, maxLambda, fcallslimit);
+        return new AdaptiveGenSize(ltype, initLambda, minLambda, maxLambda, fcallslimit, A, B);
     }
 }

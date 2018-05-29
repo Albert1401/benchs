@@ -3,7 +3,7 @@ package tasks;
 
 import java.util.List;
 
-public class OneMax implements Task {
+public class OneMax extends BTask {
     public int n;
 
     public OneMax(int n) {
@@ -21,9 +21,12 @@ public class OneMax implements Task {
 
     @Override
     public double fitness(boolean[] x, int[] inds, double f) {
-        for (int i = 0; i < inds.length; i++) {
-            f += x[i] ? -1 : 1;
+        for (int i = 1; i <= inds[0]; i++) {
+            f += x[inds[i]] ? -1 : 1;
         }
+//        if (f != fitness(x)){
+//            System.err.println("Error");
+//        }
         return f;
     }
 

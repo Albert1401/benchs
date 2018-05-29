@@ -2,7 +2,7 @@ package tasks;
 
 import solvers.AbstractEASolver;
 
-public class LeadingOnes implements Task {
+public class LeadingOnes extends BTask {
     public int n;
 
     public LeadingOnes(int n) {
@@ -30,7 +30,7 @@ public class LeadingOnes implements Task {
                 break;
             }
         }
-        AbstractEASolver.mutate(x, inds);
+        mutate(x, inds);
         int f1 = 0;
         for (int i = (int) f; i < x.length; i++) {
             if (x[i]) {
@@ -39,7 +39,7 @@ public class LeadingOnes implements Task {
                 break;
             }
         }
-        AbstractEASolver.mutate(x, inds);
+        rev(x, inds);
         return f + f1;
     }
 

@@ -3,7 +3,7 @@ package solvers;
 import tasks.Task;
 
 public interface EASolver {
-    Info solve(Task task);
+    <T, R> Info<T> solve(Task<T, R> task);
 
     String getName();
 

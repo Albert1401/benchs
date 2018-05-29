@@ -1,10 +1,12 @@
 package tasks;
 
+import solvers.AbstractEASolver;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class MST implements  Task{
+public class MST extends BTask{
     final double optimVal;
     private final int n;
     private final int v;
@@ -94,7 +96,10 @@ public class MST implements  Task{
 
     @Override
     public double fitness(boolean[] x, int[] inds, double f) {
-        throw new RuntimeException("not implemented");
+        mutate(x, inds);
+        double res = fitness(x);
+        rev(x, inds);
+        return res;
     }
 
     @Override
